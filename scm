@@ -1,1 +1,1 @@
-docker run --name cont1 -p 80:9000 nginx
+docker run --name nginx_testing2 -p 80:80 -d nginx
