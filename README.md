@@ -1,1 +1,1 @@
-date ; hostname 
+date ; hostname ; uname -m 
