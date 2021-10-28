@@ -24,15 +24,15 @@ pipeline {
         stage('NetworkInit'){
             steps {
                 dir('m8/networking/'){
-                    /bin/sh 'terraform --version'
-                    /bin/sh "terraform init --backend-config='path=${params.CONSUL_STATE_PATH}'"
+                    sh 'terraform --version'
+                    sh "terraform init --backend-config='path=${params.CONSUL_STATE_PATH}'"
                 }
             }
         }
         stage('NetworkValidate'){
             steps {
                 dir('m8/networking/'){
-                    /bin/sh 'terraform validate'
+                    sh 'terraform validate'
                 }
             }
         }
@@ -41,11 +41,11 @@ pipeline {
                 dir('m8/networking/'){
                     script {
                         try {
-                           /bin/sh "terraform workspace new ${params.WORKSPACE}"
+                           sh "terraform workspace new ${params.WORKSPACE}"
                         } catch (err) {
-                            /bin/sh "terraform workspace select ${params.WORKSPACE}"
+                           sh "terraform workspace select ${params.WORKSPACE}"
                         }
-                        /bin/sh "terraform plan -out terraform-networking.tfplan;echo \$? > status"
+                        sh "terraform plan -out terraform-networking.tfplan;echo \$? > status"
                         stash name: "terraform-networking-plan", includes: "terraform-networking.tfplan"
                     }
                 }
@@ -61,14 +61,14 @@ pipeline {
                     } catch (err) {
                         apply = false
                         dir('m8/networking/'){
-                            /bin/sh "terraform destroy -auto-approve"
+                            sh "terraform destroy -auto-approve"
                         }
                         currentBuild.result = 'UNSTABLE'
                     }
                     if(apply){
                         dir('m8/networking/'){
                             unstash "terraform-networking-plan"
-                            /bin/sh 'terraform apply terraform-networking.tfplan'
+                            sh 'terraform apply terraform-networking.tfplan'
                         }
                     }
                 }
