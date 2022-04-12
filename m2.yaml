@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nlb-sample-service
+  #  namespace: nlb-sample-app
+  annotations:
+          service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+          #    service.beta.kubernetes.io/aws-load-balancer-type: external
+          #    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+          #    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  type: LoadBalancer
+  selector:
+    role: mwdb
+root@aws-cli:~/aws-proj/learn-terraform-provision-eks-cluster/mwdb-core# cat m2.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mwdb
+  labels:
+    role: mwdb
+spec:
+  selector:
+    matchLabels:
+      role: mwdb
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        role: mwdb
+    spec:
+      containers:
+      - name: mwdb
+        image: shurabh/mwd:latest
+        #        imagePullPolicy: Never
+        volumeMounts:
+          - mountPath: /app/uploads
+            name: mwdb-uploads
+        envFrom:
+        - secretRef:
+            name: mysecret
+        env:
+        - name: GET_HOSTS_FROM
+          value: dns
+        - name: REDIS_HOST
+          value: redis
+        - name: REDIS_PORT
+          value: "6379"
+        - name: POSTGRES_HOST
+          value: postgres
+        - name: POSTGRES_PORT
+          value: "5432"
+        ports:
+        - containerPort: 8080
+      - name: mwdb-web
+        image: shurabh/mweb:latest
+        #        imagePullPolicy: Never
+        env:
+        - name: GET_HOSTS_FROM
+          value: dns
+        ports:
+        - containerPort: 80
+      restartPolicy: Always
+      volumes:
+        - name: mwdb-uploads
+          emptyDir: {}
