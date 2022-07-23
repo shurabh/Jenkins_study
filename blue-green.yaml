@@ -1,0 +1,167 @@
+## This Blue-Green deployment tested in microk8s
+##Dockerfile for Blue/green image ###
+FROM nginx
+COPY index.html /usr/share/nginx/html
+=====================================
+## index.html for Green image
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Green Deployment </title>
+    <style>
+      body {
+        background-color: Green;
+      }
+    </style>
+  </head>
+  <body></body>
+</html>
+======================================
+## index.html for Blue Image
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Blue Deployment </title>
+    <style>
+      body {
+        background-color: #1c87c9;
+      }
+    </style>
+  </head>
+  <body></body>
+</html>
+==========================================
+Steps: Build Blue and Green images
+1: Copy Blue html content in index.html and build blue image
+2: docker build -t localhost/blue:latest .
+3: copy green html content in index.html and build green image
+4: docker build -t localhost/green:latest .
+===========================================
+## Create green blue pods, service and ingress
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx
+    role: blue
+  name: nginx-blue-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+      role: blue
+  template:
+    metadata:
+      labels:
+        app: nginx
+        role: blue
+    spec:
+      containers:
+      - image: localhost/blue:latest
+        imagePullPolicy: Never
+        name: nginx-blue
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "300m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx
+    role: green
+  name: nginx-green-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+      role: green
+  template:
+    metadata:
+      labels:
+        app: nginx
+        role: green
+    spec:
+      containers:
+      - image: localhost/green:latest
+        imagePullPolicy: Never
+        name: nginx-green
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  type: NodePort
+  selector:
+    role: green
+    app: nginx
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: blue-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+  - host:
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-service
+            port:
+              number: 80
+  ingressClassName: public
+---
+###########################################################
+## create a shell script :
+echo "Deploy blue/green:"
+read first
+echo "Deploying $first"
+if [ "$first" = "green" ];
+then
+        echo "Blue Deployment, Routing traffic to Green pods"
+        sed -i 's/blue/green/g' $PWD/service.yaml
+        microk8s kubectl apply -f $PWD/service.yaml
+elif [ "$first" = "blue" ];
+then
+        echo "Green Deployment, Routing traffic to Blue pods"
+        sed -i 's/green/blue/g' $PWD/service.yaml
+        microk8s kubectl apply -f $PWD/service.yaml
+else
+        echo "enter proper deployment"
+fi
+#############################################################
+Spin-up blue and green containers/pod, service and ingress then run shellscript to route the traffic to green or blue as per need
+
+
+
